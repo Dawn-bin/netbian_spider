@@ -13,7 +13,7 @@ class NetbianSpider(scrapy.Spider):
     name = 'netbianspider'                                  #名字
     #allowed_domains = ['http://pic.netbian.com']           #限制爬虫
     index = 'http://pic.netbian.com'                        #构造url使用得主页url
-    start_urls = ['http://pic.netbian.com/index_250.html']  #开始爬去链接
+    start_urls = ['http://pic.netbian.com']  #开始爬去链接
     storePath = r'E:\picture'                               #保存路径
     next_page = ''                                          #保存下一页得url
     page_num = 0                                            #保存爬取页码数
@@ -22,7 +22,7 @@ class NetbianSpider(scrapy.Spider):
     def getHTMLText(self,url):
         headers =getHeaders()                               #获得一个header  函数位于 _header.py 文件中
         try:
-            r = requests.get(url,headers=headers, timeout=2)
+            r = requests.get(url,headers=headers, timeout=5)
             r.raise_for_status()
             return r.content
         except:
@@ -33,7 +33,7 @@ class NetbianSpider(scrapy.Spider):
     #传入图片的url、名字、类别
     #请求并保存图片
     def pictureStore(self,picture_url,picture_name,picture_class):
-        picture_name = re.sub(r'[\/\\\:\*\?\"\<\>\|]', ' ', picture_name)
+        picture_name = re.sub('[\/:*?"<>|\t]', ' ', picture_name)
         #用正则去掉非法命名符号
         url = self.index + picture_url      #构造图片url
         html_content = self.getHTMLText(url)
@@ -44,6 +44,9 @@ class NetbianSpider(scrapy.Spider):
             with open('{0}\{1}\{2}{3}'.format(self.storePath, str(picture_class), picture_name,'.jpg'), 'wb') as f:
                 f.write(html_content)
                 #保存图片
+        else:
+            with open("url_Error.txt",'a') as f:
+                f.write(str(picture_class) + ' ' + str(picture_name) + ' ' + picture_url+ '\n')
 
     def parse(self, response):
         html_content = etree.HTML(response.text)
@@ -54,7 +57,7 @@ class NetbianSpider(scrapy.Spider):
         count = re.findall(r'index_(\d*).html', self.next_page)
         #获得页码数
         #print("当前进度：{:.2f}%'.format(int(count[0]) * 100 / 1035)\n")
-        Color.printYellowRed(u"\n当前进度：{0:.2f}%    第 {1:} 页\n".format(int(count[0]) * 100 / 1035,int(count[0])))
+        Color.printYellowRed(u"\n当前进度：{0:.2f}%    第 {1:} 页\n".format((int(count[0])-1) * 100 / 1035,int(count[0])-1))
         #打印进度  printYellowRed 函数位于 Color.py
         for url in html_url:                            #遍历list
             url = self.index + url                      #构造图片单独所在的页面的url
@@ -70,13 +73,12 @@ class NetbianSpider(scrapy.Spider):
 
                 self.pictureStore(picture_url, picture_name, picture_class)
                 #保存
-            else:
-                html_url.append(url)                  #为空时再次加入list
+            #else:
+            #    html_url.append(url)                  #为空时再次加入list
+			#经测试，失败后加入list的url再次请求也不也能成功
 
         #print(self.next_page)
         if self.next_page is not None:
             yield Request(self.next_page, headers=getHeaders(), callback=self.parse)
             #callback自身  当next_page为空时结束爬取
-        else:
-            print('爬取结束')
 
